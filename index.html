@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Traslados de Equipo — SBM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper:#F4EFE4;
+    --paper-2:#EBE3D2;
+    --ink:#22201B;
+    --ink-soft:#55503F;
+    --brass:#A9812F;
+    --brass-dark:#7C5E22;
+    --sage:#6E7A5E;
+    --rust:#B0512E;
+    --line:#D9CDAE;
+    --white:#FFFDF8;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{max-width:1080px;margin:0 auto;padding:28px 20px 80px;}
+  header.top{
+    display:flex; align-items:baseline; justify-content:space-between;
+    border-bottom:2px solid var(--ink); padding-bottom:14px; margin-bottom:24px;
+    flex-wrap:wrap; gap:8px;
+  }
+  .brandmark{display:flex; align-items:center; gap:10px;}
+  .tri{
+    width:0;height:0;
+    border-left:11px solid transparent;
+    border-right:11px solid transparent;
+    border-bottom:19px solid var(--rust);
+  }
+  h1{
+    font-family:'Fraunces', serif; font-weight:600; font-size:1.5rem; margin:0;
+    letter-spacing:-0.01em;
+  }
+  .sub{font-size:0.78rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; letter-spacing:.04em; text-transform:uppercase;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--brass-dark); font-weight:600;}
+
+  .card{
+    background:var(--white); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px 22px; margin-bottom:22px;
+  }
+  .card h2{
+    font-family:'Fraunces', serif; font-size:1.05rem; font-weight:600; margin:0 0 14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card h2 .n{
+    font-family:'IBM Plex Mono',monospace; font-size:.75rem; color:var(--brass);
+    border:1px solid var(--brass); border-radius:50%; width:22px; height:22px;
+    display:flex; align-items:center; justify-content:center; flex:none;
+  }
+
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1.4fr; gap:14px;}
+  @media(max-width:700px){.grid3{grid-template-columns:1fr;}}
+  label{font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600; display:block; margin-bottom:5px;}
+  input[type=text], input[type=date], select, textarea{
+    width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px;
+    background:var(--paper); font-family:inherit; font-size:.88rem; color:var(--ink);
+  }
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--brass); outline-offset:1px;}
+
+  table.rows{width:100%; border-collapse:collapse; margin-top:6px;}
+  table.rows th{
+    text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--ink-soft); padding:6px 8px; border-bottom:2px solid var(--ink);
+  }
+  table.rows td{padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top;}
+  table.rows input, table.rows select{padding:7px 8px; font-size:.83rem;}
+  .col-cant{width:70px;}
+  .col-tipo{width:150px;}
+  .col-del{width:36px; text-align:center;}
+  .btn-del{
+    background:none; border:none; color:var(--rust); font-size:1.1rem; cursor:pointer;
+    line-height:1; padding:4px;
+  }
+  .btn-del:hover{opacity:.7;}
+
+  .actions-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+  button{
+    font-family:'IBM Plex Sans', sans-serif; font-weight:600; font-size:.83rem;
+    border-radius:7px; padding:10px 16px; cursor:pointer; border:1px solid transparent;
+    transition:opacity .15s;
+  }
+  button:hover{opacity:.85;}
+  .btn-primary{background:var(--ink); color:var(--paper);}
+  .btn-secondary{background:transparent; color:var(--ink); border:1px solid var(--ink);}
+  .btn-brass{background:var(--brass); color:var(--white);}
+  .btn-ghost{background:var(--paper-2); color:var(--ink-soft); border:1px solid var(--line);}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+
+  .upload-zone{
+    border:1.5px dashed var(--line); border-radius:8px; padding:16px; text-align:center;
+    font-size:.83rem; color:var(--ink-soft); margin-bottom:14px; background:var(--paper);
+  }
+  .upload-zone input[type=file]{display:none;}
+  .upload-zone .lbl{cursor:pointer; color:var(--brass-dark); font-weight:600; text-decoration:underline;}
+  .status{font-size:.78rem; margin-top:8px; font-family:'IBM Plex Mono',monospace;}
+  .status.ok{color:var(--sage);}
+  .status.err{color:var(--rust);}
+  .status.busy{color:var(--brass-dark);}
+
+  details.config summary{cursor:pointer; font-size:.75rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  details.config .cfgbody{margin-top:10px; display:grid; gap:10px; grid-template-columns:1fr 1fr;}
+
+  footer.note{font-size:.75rem; color:var(--ink-soft); text-align:center; margin-top:30px;}
+
+  /* ---------- PRINT BOLETAS ---------- */
+  #print-area{display:none;}
+  .boleta{
+    width:190mm; margin:0 auto 8mm; border:1.5px solid #000; font-family:'IBM Plex Sans', sans-serif; font-size:9.5pt; color:#111;
+    page-break-after:always;
+  }
+  .boleta .tag{
+    background:var(--rust); color:#fff; font-family:'IBM Plex Mono',monospace; font-size:8pt;
+    letter-spacing:.05em; text-transform:uppercase; padding:3px 8px; text-align:right;
+  }
+  .boleta .head{display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid #000;}
+  .boleta .head .logo{display:flex; align-items:center; gap:8px;}
+  .boleta .head .logo .tri2{width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:15px solid var(--rust);}
+  .boleta .head .logo b{font-size:15pt; letter-spacing:.02em;}
+  .boleta .head h3{font-family:'Fraunces', serif; font-weight:600; font-size:13pt; margin:0;}
+  .boleta .head .meta{font-size:7.5pt; text-align:right; color:#444; line-height:1.3;}
+  table.bform{width:100%; border-collapse:collapse;}
+  table.bform td{border:1px solid #000; padding:4px 7px; font-size:9pt;}
+  table.bform td.lbl{background:#e9e2cf; font-weight:600; width:26%; font-size:8pt;}
+  table.bform td.bar{background:#111; color:#111; padding:2px; border:none;}
+  table.bform td.section{background:#111; color:#fff; font-weight:700; font-size:8pt; text-transform:uppercase; letter-spacing:.03em;}
+  .chk{display:inline-block; width:11px; height:11px; border:1px solid #000; margin-right:5px; vertical-align:middle; text-align:center; line-height:10px; font-size:9pt; font-weight:700;}
+  .obs-box{min-height:34px; padding:6px 8px; font-size:8.7pt;}
+  .sign-row{display:flex;}
+  .sign-row div{flex:1; text-align:center; padding:22px 8px 8px; border-top:1px solid #000; font-size:8pt;}
+  .sign-row div:first-child{border-right:1px solid #000;}
+
+  @media print{
+    body *{visibility:hidden;}
+    #print-area, #print-area *{visibility:visible;}
+    #print-area{display:block; position:absolute; top:0; left:0; width:100%;}
+    .boleta{border:1.5px solid #000; box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app-ui">
+  <header class="top">
+    <div class="brandmark">
+      <div class="tri"></div>
+      <div>
+        <h1>Traslados de Equipo</h1>
+        <div class="sub">SBM Corp · LillyTech</div>
+      </div>
+    </div>
+    <div class="eyebrow">Boleta oficial: Acción de Activo Fijo</div>
+  </header>
+
+  <div class="card">
+    <h2><span class="n">1</span> Datos del traslado</h2>
+    <div class="grid3">
+      <div>
+        <label for="fFecha">Fecha de traslado</label>
+        <input type="date" id="fFecha">
+      </div>
+      <div>
+        <label for="fRetiro">Fecha de retiro (si aplica)</label>
+        <input type="date" id="fRetiro">
+      </div>
+      <div>
+        <label for="fMotivo">Motivo</label>
+        <input type="text" id="fMotivo" placeholder="Ej. Superclean de transición - Proyecto Emerson">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span> Lista de equipos</h2>
+
+    <div class="upload-zone">
+      📷 Subí una foto de la lista de traslados y la IA la pasa a la tabla —
+      <label class="lbl" for="imgInput">elegir imagen</label>
+      <input type="file" id="imgInput" accept="image/*">
+      <div class="status" id="uploadStatus"></div>
+    </div>
+
+    <table class="rows">
+      <thead>
+        <tr>
+          <th>Equipo</th>
+          <th class="col-cant">Cant.</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th class="col-tipo">Tipo</th>
+          <th>Observaciones</th>
+          <th class="col-del"></th>
+        </tr>
+      </thead>
+      <tbody id="rowsBody"></tbody>
+    </table>
+
+    <div class="actions-row">
+      <button class="btn-ghost" onclick="addRow()">+ Agregar equipo</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span> Generar boletas</h2>
+    <p style="font-size:.85rem; color:var(--ink-soft); margin-top:0;">
+      Se genera 1 boleta "Acción de Activo Fijo" por cada equipo, por duplicado: una copia para quien entrega
+      (queda en el sitio de origen) y otra para quien recibe (viaja con el equipo al destino).
+    </p>
+    <div class="actions-row">
+      <button class="btn-primary" onclick="generarBoletas()">🖨️ Generar e imprimir boletas</button>
+      <button class="btn-secondary" onclick="exportarExcel()">⬇ Exportar lista a Excel</button>
+    </div>
+  </div>
+
+  <details class="config">
+    <summary>⚙ Configuración del proxy de IA (visión)</summary>
+    <div class="cfgbody">
+      <div>
+        <label for="cfgUrl">URL de tu Cloudflare Worker</label>
+        <input type="text" id="cfgUrl" value="https://seleccion-candidatos-proxy.lilliana-retana.workers.dev" placeholder="https://tu-worker.workers.dev">
+      </div>
+      <div>
+        <label for="cfgModel">Modelo</label>
+        <input type="text" id="cfgModel" value="gpt-4o">
+      </div>
+    </div>
+  </details>
+
+  <footer class="note">LillyTech · Herramienta interna SBM — datos procesados solo en tu navegador y en tu proxy configurado.</footer>
+</div>
+
+<div id="print-area"></div>
+
+<script>
+let rows = [];
+let rowSeq = 0;
+
+function newRow(data={}){
+  rowSeq++;
+  return {
+    id: rowSeq,
+    equipo: data.equipo || '',
+    cantidad: data.cantidad || 1,
+    origen: data.origen || '',
+    destino: data.destino || '',
+    tipo: data.tipo || 'temporal',
+    observaciones: data.observaciones || ''
+  };
+}
+
+function addRow(data){
+  rows.push(newRow(data||{}));
+  renderRows();
+}
+
+function removeRow(id){
+  rows = rows.filter(r => r.id !== id);
+  renderRows();
+}
+
+function updateRow(id, field, value){
+  const r = rows.find(r => r.id === id);
+  if(r) r[field] = value;
+}
+
+function renderRows(){
+  const tbody = document.getElementById('rowsBody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" value="${escAttr(r.equipo)}" onchange="updateRow(${r.id},'equipo',this.value)"></td>
+      <td class="col-cant"><input type="text" value="${escAttr(r.cantidad)}" onchange="updateRow(${r.id},'cantidad',this.value)"></td>
+      <td><input type="text" value="${escAttr(r.origen)}" onchange="updateRow(${r.id},'origen',this.value)"></td>
+      <td><input type="text" value="${escAttr(r.destino)}" onchange="updateRow(${r.id},'destino',this.value)"></td>
+      <td class="col-tipo">
+        <select onchange="updateRow(${r.id},'tipo',this.value)">
+          <option value="temporal" ${r.tipo==='temporal'?'selected':''}>Prestado (temporal)</option>
+          <option value="permanente" ${r.tipo==='permanente'?'selected':''}>Asignado (permanente)</option>
+        </select>
+      </td>
+      <td><input type="text" value="${escAttr(r.observaciones)}" onchange="updateRow(${r.id},'observaciones',this.value)"></td>
+      <td class="col-del"><button class="btn-del" onclick="removeRow(${r.id})" title="Eliminar">×</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escAttr(v){
+  return String(v==null?'':v).replace(/"/g,'&quot;');
+}
+
+function escHtml(v){
+  return String(v==null?'':v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ---------- Extracción por IA (foto -> filas) ----------
+document.getElementById('imgInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('uploadStatus');
+  statusEl.className = 'status busy';
+  statusEl.textContent = 'Leyendo imagen y extrayendo datos...';
+
+  const proxyUrl = document.getElementById('cfgUrl').value.trim();
+  const model = document.getElementById('cfgModel').value.trim() || 'gpt-4o';
+
+  if(!proxyUrl){
+    statusEl.className = 'status err';
+    statusEl.textContent = 'Configurá primero la URL de tu proxy (⚙ abajo del todo).';
+    return;
+  }
+
+  try{
+    const base64 = await fileToBase64(file);
+    const prompt = `Esta imagen es una boleta o lista de traslado temporal de equipos. Extraé los datos y respondé SOLO con un JSON válido, sin texto adicional, sin markdown, con esta forma exacta:
+{
+  "fecha_traslado": "YYYY-MM-DD o texto tal cual aparece",
+  "fecha_retiro": "YYYY-MM-DD o texto tal cual aparece, vacío si no aplica",
+  "motivo": "texto",
+  "equipos": [
+    {"equipo": "nombre", "cantidad": "numero", "origen": "texto", "destino": "texto", "observaciones": "texto"}
+  ]
+}
+Si algún campo no aparece en la imagen, dejalo como string vacío. No inventes datos que no estén en la imagen.`;
+
+    const res = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model,
+        messages: [{
+          role: 'user',
+          content: [
+            {type:'text', text: prompt},
+            {type:'image_url', image_url:{url:`data:${file.type};base64,${base64}`}}
+          ]
+        }],
+        max_tokens: 2000
+      })
+    });
+
+    if(!res.ok) throw new Error('Proxy respondió ' + res.status);
+    const data = await res.json();
+    const raw = data.choices?.[0]?.message?.content || '';
+    const clean = raw.replace(/```json/g,'').replace(/```/g,'').trim();
+    const parsed = JSON.parse(clean);
+
+    if(parsed.fecha_traslado) document.getElementById('fFecha').value = normalizeDate(parsed.fecha_traslado);
+    if(parsed.fecha_retiro) document.getElementById('fRetiro').value = normalizeDate(parsed.fecha_retiro);
+    if(parsed.motivo) document.getElementById('fMotivo').value = parsed.motivo;
+
+    (parsed.equipos || []).forEach(eq => {
+      addRow({
+        equipo: eq.equipo || '',
+        cantidad: eq.cantidad || 1,
+        origen: eq.origen || '',
+        destino: eq.destino || '',
+        observaciones: eq.observaciones || '',
+        tipo: 'temporal'
+      });
+    });
+
+    statusEl.className = 'status ok';
+    statusEl.textContent = `Listo — se agregaron ${(parsed.equipos||[]).length} equipos. Revisá la tabla antes de generar boletas.`;
+  }catch(err){
+    statusEl.className = 'status err';
+    statusEl.textContent = 'No se pudo extraer: ' + err.message;
+  }
+  e.target.value = '';
+});
+
+function normalizeDate(s){
+  const d = new Date(s);
+  if(isNaN(d)) return '';
+  return d.toISOString().slice(0,10);
+}
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// ---------- Generar boletas oficiales ----------
+function boletaHTML(row, fecha, copia){
+  const marcaTemporal = row.tipo === 'temporal';
+  const chkPrestadoActual = marcaTemporal ? '✓' : '';
+  const chkPrestadoNuevo = marcaTemporal ? '✓' : '';
+  const chkAsigActual = !marcaTemporal ? '✓' : '';
+  const chkAsigNuevo = !marcaTemporal ? '✓' : '';
+
+  return `
+  <div class="boleta">
+    <div class="tag">Copia — ${copia}</div>
+    <div class="head">
+      <div class="logo"><div class="tri2"></div><b>sbm</b></div>
+      <h3>Acción de Activo Fijo</h3>
+      <div class="meta">F1Act Formato Acción de Activos Fijos<br>Rev: 21/11/16</div>
+    </div>
+    <table class="bform">
+      <tr>
+        <td class="lbl">Site (ubicación actual)</td><td>${escHtml(row.origen)}</td>
+        <td class="lbl">Fecha</td><td>${escHtml(fecha)}</td>
+      </tr>
+      <tr>
+        <td class="lbl"># Placa del Activo Fijo</td><td></td>
+        <td class="lbl"># de Serie del Activo Fijo</td><td></td>
+      </tr>
+      <tr><td colspan="4" class="section">Tipo Acción · Estado del Bien</td></tr>
+      <tr>
+        <td class="lbl">Descripción Activo Fijo</td>
+        <td colspan="3">${escHtml(row.equipo)} — cantidad: ${escHtml(row.cantidad)}</td>
+      </tr>
+      <tr>
+        <td class="lbl">Estado</td>
+        <td>
+          <span class="chk">${chkAsigActual}</span>Asignado (en uso) &nbsp;
+          <span class="chk">${chkPrestadoActual}</span>Prestado
+        </td>
+        <td class="lbl">Nuevo estado</td>
+        <td>
+          <span class="chk">${chkAsigNuevo}</span>Asignado (en uso) &nbsp;
+          <span class="chk">${chkPrestadoNuevo}</span>Prestado
+        </td>
+      </tr>
+      <tr>
+        <td class="lbl">Responsable del activo — Actual</td><td></td>
+        <td class="lbl">Responsable del activo — Nuevo</td><td></td>
+      </tr>
+      <tr>
+        <td class="lbl">Site donde se ubica — Actual</td><td>${escHtml(row.origen)}</td>
+        <td class="lbl">Site donde se ubica — Nuevo</td><td>${escHtml(row.destino)}</td>
+      </tr>
+      <tr>
+        <td class="lbl" style="vertical-align:top;">Observaciones</td>
+        <td colspan="3" class="obs-box">${escHtml(row.observaciones)}</td>
+      </tr>
+    </table>
+    <div class="sign-row">
+      <div>Nombre y firma del solicitante</div>
+      <div>Nombre y firma de quien recibe</div>
+    </div>
+  </div>`;
+}
+
+function generarBoletas(){
+  if(rows.length === 0){
+    alert('Agregá al menos un equipo antes de generar boletas.');
+    return;
+  }
+  const fecha = document.getElementById('fFecha').value || '';
+  const printArea = document.getElementById('print-area');
+  let html = '';
+  rows.forEach(r => {
+    html += boletaHTML(r, fecha, `queda en ${r.origen || 'origen'}`);
+    html += boletaHTML(r, fecha, `viaja a ${r.destino || 'destino'}`);
+  });
+  printArea.innerHTML = html;
+  setTimeout(() => window.print(), 150);
+}
+
+// ---------- Exportar Excel (resumen) ----------
+function exportarExcel(){
+  if(rows.length === 0){
+    alert('No hay equipos en la lista todavía.');
+    return;
+  }
+  const fecha = document.getElementById('fFecha').value || '';
+  const fRetiro = document.getElementById('fRetiro').value || '';
+  const motivo = document.getElementById('fMotivo').value || '';
+
+  const data = rows.map(r => ({
+    'Fecha traslado': fecha,
+    'Fecha retiro': fRetiro,
+    'Motivo': motivo,
+    'Equipo': r.equipo,
+    'Cantidad': r.cantidad,
+    'Origen': r.origen,
+    'Destino': r.destino,
+    'Tipo': r.tipo === 'temporal' ? 'Prestado (temporal)' : 'Asignado (permanente)',
+    'Observaciones': r.observaciones
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:13},{wch:13},{wch:30},{wch:24},{wch:8},{wch:16},{wch:16},{wch:20},{wch:30}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Traslados');
+  XLSX.writeFile(wb, `traslados_${fecha || 'sin_fecha'}.xlsx`);
+}
+
+// fila inicial vacía
+addRow();
+</script>
+
+</body>
+</html>
