@@ -77,8 +77,7 @@
   }
   table.rows td{padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top;}
   table.rows input, table.rows select{padding:7px 8px; font-size:.83rem;}
-  .col-cant{width:70px;}
-  .col-tipo{width:150px;}
+  .col-placa{width:110px;}
   .col-del{width:36px; text-align:center;}
   .btn-del{
     background:none; border:none; color:var(--rust); font-size:1.1rem; cursor:pointer;
@@ -186,7 +185,14 @@
     <h2><span class="n">2</span> Lista de equipos</h2>
 
     <div class="upload-zone">
-      📷 Subí una foto de la lista de traslados y la IA la pasa a la tabla —
+      📊 Importá el Excel de traslados directo (columnas Equipo, Placa, Origen, Destino, Observaciones) —
+      <label class="lbl" for="xlsInput">elegir archivo</label>
+      <input type="file" id="xlsInput" accept=".xlsx,.xls,.csv">
+      <div class="status" id="xlsStatus"></div>
+    </div>
+
+    <div class="upload-zone">
+      📷 O subí una foto de la lista y la IA la pasa a la tabla —
       <label class="lbl" for="imgInput">elegir imagen</label>
       <input type="file" id="imgInput" accept="image/*">
       <div class="status" id="uploadStatus"></div>
@@ -196,10 +202,9 @@
       <thead>
         <tr>
           <th>Equipo</th>
-          <th class="col-cant">Cant.</th>
+          <th class="col-placa">Placa</th>
           <th>Origen</th>
           <th>Destino</th>
-          <th class="col-tipo">Tipo</th>
           <th>Observaciones</th>
           <th class="col-del"></th>
         </tr>
@@ -252,10 +257,9 @@ function newRow(data={}){
   return {
     id: rowSeq,
     equipo: data.equipo || '',
-    cantidad: data.cantidad || 1,
+    placa: data.placa || '',
     origen: data.origen || '',
     destino: data.destino || '',
-    tipo: data.tipo || 'temporal',
     observaciones: data.observaciones || ''
   };
 }
@@ -282,15 +286,9 @@ function renderRows(){
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="text" value="${escAttr(r.equipo)}" onchange="updateRow(${r.id},'equipo',this.value)"></td>
-      <td class="col-cant"><input type="text" value="${escAttr(r.cantidad)}" onchange="updateRow(${r.id},'cantidad',this.value)"></td>
+      <td class="col-placa"><input type="text" value="${escAttr(r.placa)}" onchange="updateRow(${r.id},'placa',this.value)"></td>
       <td><input type="text" value="${escAttr(r.origen)}" onchange="updateRow(${r.id},'origen',this.value)"></td>
       <td><input type="text" value="${escAttr(r.destino)}" onchange="updateRow(${r.id},'destino',this.value)"></td>
-      <td class="col-tipo">
-        <select onchange="updateRow(${r.id},'tipo',this.value)">
-          <option value="temporal" ${r.tipo==='temporal'?'selected':''}>Prestado (temporal)</option>
-          <option value="permanente" ${r.tipo==='permanente'?'selected':''}>Asignado (permanente)</option>
-        </select>
-      </td>
       <td><input type="text" value="${escAttr(r.observaciones)}" onchange="updateRow(${r.id},'observaciones',this.value)"></td>
       <td class="col-del"><button class="btn-del" onclick="removeRow(${r.id})" title="Eliminar">×</button></td>
     `;
@@ -306,6 +304,47 @@ function escHtml(v){
   return String(v==null?'':v)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ---------- Importar Excel directo ----------
+document.getElementById('xlsInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('xlsStatus');
+  statusEl.className = 'status busy';
+  statusEl.textContent = 'Leyendo archivo...';
+
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(ws, {defval:''});
+
+    // Mapea encabezados sin importar mayúsculas/acentos
+    const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+    let agregados = 0;
+    json.forEach(row => {
+      const map = {};
+      Object.keys(row).forEach(k => map[norm(k)] = row[k]);
+      const equipo = map['equipo'] ?? '';
+      if(!equipo) return; // salta filas vacías
+      addRow({
+        equipo,
+        placa: map['placa'] ?? '',
+        origen: map['origen'] ?? '',
+        destino: map['destino'] ?? '',
+        observaciones: map['observaciones'] ?? ''
+      });
+      agregados++;
+    });
+
+    statusEl.className = 'status ok';
+    statusEl.textContent = `Listo — se importaron ${agregados} equipos.`;
+  }catch(err){
+    statusEl.className = 'status err';
+    statusEl.textContent = 'No se pudo leer el archivo: ' + err.message;
+  }
+  e.target.value = '';
+});
 
 // ---------- Extracción por IA (foto -> filas) ----------
 document.getElementById('imgInput').addEventListener('change', async (e) => {
@@ -332,7 +371,7 @@ document.getElementById('imgInput').addEventListener('change', async (e) => {
   "fecha_retiro": "YYYY-MM-DD o texto tal cual aparece, vacío si no aplica",
   "motivo": "texto",
   "equipos": [
-    {"equipo": "nombre", "cantidad": "numero", "origen": "texto", "destino": "texto", "observaciones": "texto"}
+    {"equipo": "nombre", "placa": "numero de placa o 'Nuevo sin placa' si así aparece", "origen": "texto", "destino": "texto", "observaciones": "texto"}
   ]
 }
 Si algún campo no aparece en la imagen, dejalo como string vacío. No inventes datos que no estén en la imagen.`;
@@ -366,11 +405,10 @@ Si algún campo no aparece en la imagen, dejalo como string vacío. No inventes 
     (parsed.equipos || []).forEach(eq => {
       addRow({
         equipo: eq.equipo || '',
-        cantidad: eq.cantidad || 1,
+        placa: eq.placa || '',
         origen: eq.origen || '',
         destino: eq.destino || '',
-        observaciones: eq.observaciones || '',
-        tipo: 'temporal'
+        observaciones: eq.observaciones || ''
       });
     });
 
@@ -400,12 +438,7 @@ function fileToBase64(file){
 
 // ---------- Generar boletas oficiales ----------
 function boletaHTML(row, fecha, copia){
-  const marcaTemporal = row.tipo === 'temporal';
-  const chkPrestadoActual = marcaTemporal ? '✓' : '';
-  const chkPrestadoNuevo = marcaTemporal ? '✓' : '';
-  const chkAsigActual = !marcaTemporal ? '✓' : '';
-  const chkAsigNuevo = !marcaTemporal ? '✓' : '';
-
+  // Regla fija: al trasladar, el activo pasa de Asignado (actual) a Prestado (nuevo)
   return `
   <div class="boleta">
     <div class="tag">Copia — ${copia}</div>
@@ -420,24 +453,24 @@ function boletaHTML(row, fecha, copia){
         <td class="lbl">Fecha</td><td>${escHtml(fecha)}</td>
       </tr>
       <tr>
-        <td class="lbl"># Placa del Activo Fijo</td><td></td>
+        <td class="lbl"># Placa del Activo Fijo</td><td>${escHtml(row.placa)}</td>
         <td class="lbl"># de Serie del Activo Fijo</td><td></td>
       </tr>
       <tr><td colspan="4" class="section">Tipo Acción · Estado del Bien</td></tr>
       <tr>
         <td class="lbl">Descripción Activo Fijo</td>
-        <td colspan="3">${escHtml(row.equipo)} — cantidad: ${escHtml(row.cantidad)}</td>
+        <td colspan="3">${escHtml(row.equipo)}</td>
       </tr>
       <tr>
         <td class="lbl">Estado</td>
         <td>
-          <span class="chk">${chkAsigActual}</span>Asignado (en uso) &nbsp;
-          <span class="chk">${chkPrestadoActual}</span>Prestado
+          <span class="chk">✓</span>Asignado (en uso) &nbsp;
+          <span class="chk"></span>Prestado
         </td>
         <td class="lbl">Nuevo estado</td>
         <td>
-          <span class="chk">${chkAsigNuevo}</span>Asignado (en uso) &nbsp;
-          <span class="chk">${chkPrestadoNuevo}</span>Prestado
+          <span class="chk"></span>Asignado (en uso) &nbsp;
+          <span class="chk">✓</span>Prestado
         </td>
       </tr>
       <tr>
@@ -491,15 +524,14 @@ function exportarExcel(){
     'Fecha retiro': fRetiro,
     'Motivo': motivo,
     'Equipo': r.equipo,
-    'Cantidad': r.cantidad,
+    'Placa': r.placa,
     'Origen': r.origen,
     'Destino': r.destino,
-    'Tipo': r.tipo === 'temporal' ? 'Prestado (temporal)' : 'Asignado (permanente)',
     'Observaciones': r.observaciones
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = [{wch:13},{wch:13},{wch:30},{wch:24},{wch:8},{wch:16},{wch:16},{wch:20},{wch:30}];
+  ws['!cols'] = [{wch:13},{wch:13},{wch:30},{wch:28},{wch:14},{wch:16},{wch:16},{wch:30}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Traslados');
   XLSX.writeFile(wb, `traslados_${fecha || 'sin_fecha'}.xlsx`);
