@@ -220,7 +220,7 @@
   <div class="card">
     <h2><span class="n">3</span> Generar boletas</h2>
     <p style="font-size:.85rem; color:var(--ink-soft); margin-top:0;">
-      Se completa el machote autorizado original, con sus dos copias y sin cambiar su diseño. Un equipo descarga un Excel; varios equipos descargan un ZIP con un Excel por equipo. Para PDF, abrí el Excel y elegí Guardar como PDF o Imprimir.
+      Se completa el machote autorizado original, con sus dos copias y sin cambiar su diseño. Un equipo descarga un Excel; varios equipos descargan un ZIP con un Excel por equipo. El PDF se descarga directamente en un solo archivo, con una página por equipo y las dos copias del formulario.
     </p>
     <div class="grid3" style="margin-bottom:14px">
       <div><label for="fActual">Estado actual</label><select id="fActual"><option value="11">Asignado (En uso)</option><option value="12">Reparación</option><option value="13">Prestado</option><option value="14">Para Destruir</option></select></div>
@@ -228,6 +228,7 @@
     </div>
     <div id="boletaStatus" role="status" class="status"></div>
     <div class="actions-row">
+      <button id="generarPDF" class="btn-primary" onclick="generarPDF()">⬇ Descargar boletas en PDF</button>
       <button id="generarOficial" class="btn-primary" onclick="generarBoletas()">⬇ Descargar boletas oficiales en Excel</button>
       <button class="btn-secondary" onclick="exportarExcel()">⬇ Exportar lista a Excel</button>
     </div>
@@ -477,5 +478,6 @@ addRow();
 </script>
 
 <script src="formato-oficial.js?v=20261102"></script>
+<script src="pdf-oficial.js?v=20261102-1"></script>
 </body>
 </html>
