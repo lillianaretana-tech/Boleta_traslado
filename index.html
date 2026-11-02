@@ -220,11 +220,15 @@
   <div class="card">
     <h2><span class="n">3</span> Generar boletas</h2>
     <p style="font-size:.85rem; color:var(--ink-soft); margin-top:0;">
-      Se genera 1 boleta "Acción de Activo Fijo" por cada equipo, por duplicado: una copia para quien entrega
-      (queda en el sitio de origen) y otra para quien recibe (viaja con el equipo al destino).
+      Se completa el machote autorizado original, con sus dos copias y sin cambiar su diseño. Un equipo descarga un Excel; varios equipos descargan un ZIP con un Excel por equipo. Para PDF, abrí el Excel y elegí Guardar como PDF o Imprimir.
     </p>
+    <div class="grid3" style="margin-bottom:14px">
+      <div><label for="fActual">Estado actual</label><select id="fActual"><option value="11">Asignado (En uso)</option><option value="12">Reparación</option><option value="13">Prestado</option><option value="14">Para Destruir</option></select></div>
+      <div><label for="fNuevo">Estado nuevo</label><select id="fNuevo"><option value="13">Prestado</option><option value="11">Asignado y/o devolución préstamo</option><option value="12">Reparación</option><option value="14">Para Destruir</option></select></div>
+    </div>
+    <div id="boletaStatus" role="status" class="status"></div>
     <div class="actions-row">
-      <button class="btn-primary" onclick="generarBoletas()">🖨️ Generar e imprimir boletas</button>
+      <button id="generarOficial" class="btn-primary" onclick="generarBoletas()">⬇ Descargar boletas oficiales en Excel</button>
       <button class="btn-secondary" onclick="exportarExcel()">⬇ Exportar lista a Excel</button>
     </div>
   </div>
@@ -260,7 +264,8 @@ function newRow(data={}){
     placa: data.placa || '',
     origen: data.origen || '',
     destino: data.destino || '',
-    observaciones: data.observaciones || ''
+    observaciones: data.observaciones || '',
+    serie: data.serie || '', responsableActual: data.responsableActual || '', responsableNuevo: data.responsableNuevo || ''
   };
 }
 
@@ -293,11 +298,14 @@ function renderRows(){
       <td class="col-del"><button class="btn-del" onclick="removeRow(${r.id})" title="Eliminar">×</button></td>
     `;
     tbody.appendChild(tr);
+    const extra=document.createElement('tr');
+    extra.innerHTML=`<td colspan="6"><details><summary style="cursor:pointer;font-size:.8rem">Serie y responsables (opcional)</summary><div class="grid3" style="margin:10px 0"><div><label>Número de serie</label><input type="text" value="${escAttr(r.serie)}" onchange="updateRow(${r.id},'serie',this.value)"></div><div><label>Responsable actual</label><input type="text" value="${escAttr(r.responsableActual)}" onchange="updateRow(${r.id},'responsableActual',this.value)"></div><div><label>Responsable nuevo</label><input type="text" value="${escAttr(r.responsableNuevo)}" onchange="updateRow(${r.id},'responsableNuevo',this.value)"></div></div></details></td>`;
+    tbody.appendChild(extra);
   });
 }
 
 function escAttr(v){
-  return String(v==null?'':v).replace(/"/g,'&quot;');
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function escHtml(v){
@@ -436,79 +444,6 @@ function fileToBase64(file){
   });
 }
 
-// ---------- Generar boletas oficiales ----------
-function boletaHTML(row, fecha, copia){
-  // Regla fija: al trasladar, el activo pasa de Asignado (actual) a Prestado (nuevo)
-  return `
-  <div class="boleta">
-    <div class="tag">Copia — ${copia}</div>
-    <div class="head">
-      <div class="logo"><div class="tri2"></div><b>sbm</b></div>
-      <h3>Acción de Activo Fijo</h3>
-      <div class="meta">F1Act Formato Acción de Activos Fijos<br>Rev: 21/11/16</div>
-    </div>
-    <table class="bform">
-      <tr>
-        <td class="lbl">Site (ubicación actual)</td><td>${escHtml(row.origen)}</td>
-        <td class="lbl">Fecha</td><td>${escHtml(fecha)}</td>
-      </tr>
-      <tr>
-        <td class="lbl"># Placa del Activo Fijo</td><td>${escHtml(row.placa)}</td>
-        <td class="lbl"># de Serie del Activo Fijo</td><td></td>
-      </tr>
-      <tr><td colspan="4" class="section">Tipo Acción · Estado del Bien</td></tr>
-      <tr>
-        <td class="lbl">Descripción Activo Fijo</td>
-        <td colspan="3">${escHtml(row.equipo)}</td>
-      </tr>
-      <tr>
-        <td class="lbl">Estado</td>
-        <td>
-          <span class="chk">✓</span>Asignado (en uso) &nbsp;
-          <span class="chk"></span>Prestado
-        </td>
-        <td class="lbl">Nuevo estado</td>
-        <td>
-          <span class="chk"></span>Asignado (en uso) &nbsp;
-          <span class="chk">✓</span>Prestado
-        </td>
-      </tr>
-      <tr>
-        <td class="lbl">Responsable del activo — Actual</td><td></td>
-        <td class="lbl">Responsable del activo — Nuevo</td><td></td>
-      </tr>
-      <tr>
-        <td class="lbl">Site donde se ubica — Actual</td><td>${escHtml(row.origen)}</td>
-        <td class="lbl">Site donde se ubica — Nuevo</td><td>${escHtml(row.destino)}</td>
-      </tr>
-      <tr>
-        <td class="lbl" style="vertical-align:top;">Observaciones</td>
-        <td colspan="3" class="obs-box">${escHtml(row.observaciones)}</td>
-      </tr>
-    </table>
-    <div class="sign-row">
-      <div>Nombre y firma del solicitante</div>
-      <div>Nombre y firma de quien recibe</div>
-    </div>
-  </div>`;
-}
-
-function generarBoletas(){
-  if(rows.length === 0){
-    alert('Agregá al menos un equipo antes de generar boletas.');
-    return;
-  }
-  const fecha = document.getElementById('fFecha').value || '';
-  const printArea = document.getElementById('print-area');
-  let html = '';
-  rows.forEach(r => {
-    html += boletaHTML(r, fecha, `queda en ${r.origen || 'origen'}`);
-    html += boletaHTML(r, fecha, `viaja a ${r.destino || 'destino'}`);
-  });
-  printArea.innerHTML = html;
-  setTimeout(() => window.print(), 150);
-}
-
 // ---------- Exportar Excel (resumen) ----------
 function exportarExcel(){
   if(rows.length === 0){
@@ -541,5 +476,6 @@ function exportarExcel(){
 addRow();
 </script>
 
+<script src="formato-oficial.js?v=20261102"></script>
 </body>
 </html>
